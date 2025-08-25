@@ -11,7 +11,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
@@ -214,6 +214,72 @@ app.delete('/api/subscriptions', (req, res) => {
     success: true,
     message: `Cleared ${count} subscriptions`
   });
+});
+
+// OneSignal API endpoint
+app.post('/api/onesignal-send', async (req, res) => {
+  console.log('📨 OneSignal notification request received');
+  
+  const { title, message, userId, data } = req.body;
+  
+  if (!userId) {
+    console.error('❌ No OneSignal user ID provided');
+    return res.status(400).json({
+      error: 'OneSignal user ID required',
+      hint: 'Make sure user is subscribed to OneSignal first'
+    });
+  }
+  
+  try {
+    console.log('🎯 Sending OneSignal notification to user:', userId);
+    
+    // OneSignal REST API call
+    const oneSignalResponse = await fetch('https://onesignal.com/api/v1/notifications', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Basic ${process.env.ONESIGNAL_API_KEY || 'os_v2_app_7cgvvzhhmzdb7pyasbyhyg4fb2rzzg2wgopebeeod643vm43qbfradrvoiqqgev2sdvay5f7ho2yinxlgbvf355inm6ndr6fpzuzglq'}`
+      },
+      body: JSON.stringify({
+        app_id: 'f88d5ae4-e766-461f-bf00-90707c1b850e',
+        include_player_ids: [userId],
+        headings: { en: title },
+        contents: { en: message },
+        data: {
+          url: '/',
+          timestamp: Date.now(),
+          source: 'server-onesignal',
+          ...data
+        },
+        web_url: 'https://react.signalstrading.app/',
+        chrome_web_icon: 'https://react.signalstrading.app/vite.svg',
+        firefox_icon: 'https://react.signalstrading.app/vite.svg'
+      })
+    });
+    
+    const oneSignalResult = await oneSignalResponse.json();
+    console.log('📊 OneSignal API response:', oneSignalResult);
+    
+    if (oneSignalResponse.ok && oneSignalResult.id) {
+      console.log('✅ OneSignal notification sent successfully:', oneSignalResult.id);
+      res.json({
+        success: true,
+        message: 'OneSignal notification sent successfully',
+        notificationId: oneSignalResult.id,
+        recipients: oneSignalResult.recipients || 1
+      });
+    } else {
+      throw new Error(`OneSignal API error: ${oneSignalResult.errors || 'Unknown error'}`);
+    }
+    
+  } catch (error) {
+    console.error('❌ OneSignal notification failed:', error);
+    res.status(500).json({
+      error: 'OneSignal notification failed',
+      message: error.message,
+      details: error
+    });
+  }
 });
 
 // Serve React app for all other routes

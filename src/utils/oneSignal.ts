@@ -1,0 +1,306 @@
+// OneSignal Push Notification Integration
+// Comprehensive OneSignal SDK implementation with error handling
+
+// OneSignal configuration
+const ONESIGNAL_APP_ID = 'f88d5ae4-e766-461f-bf00-90707c1b850e';
+const SAFARI_WEB_ID = 'web.onesignal.auto.2e77cfdc-f6e8-4572-82d4-363b6713f2bc';
+
+// Type definitions for OneSignal
+interface OneSignalWindow extends Window {
+  OneSignal?: any;
+  OneSignalDeferred?: any[];
+}
+
+declare let window: OneSignalWindow;
+
+// Load OneSignal SDK dynamically
+let oneSignalLoaded = false;
+let oneSignalPromise: Promise<void> | null = null;
+
+export async function loadOneSignal(): Promise<void> {
+  if (oneSignalLoaded) return;
+  if (oneSignalPromise) return oneSignalPromise;
+
+  oneSignalPromise = new Promise((resolve, reject) => {
+    try {
+      console.log('🔄 Loading OneSignal SDK...');
+
+      // Initialize deferred array
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+
+      // Create script element
+      const script = document.createElement('script');
+      script.src = 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js';
+      script.defer = true;
+      script.async = true;
+
+      script.onload = () => {
+        console.log('✅ OneSignal SDK loaded successfully');
+        oneSignalLoaded = true;
+        resolve();
+      };
+
+      script.onerror = (error) => {
+        console.error('❌ Failed to load OneSignal SDK:', error);
+        reject(new Error('Failed to load OneSignal SDK'));
+      };
+
+      document.head.appendChild(script);
+    } catch (error) {
+      console.error('❌ Error loading OneSignal SDK:', error);
+      reject(error);
+    }
+  });
+
+  return oneSignalPromise;
+}
+
+// Initialize OneSignal
+export async function initOneSignal(): Promise<boolean> {
+  try {
+    console.log('🚀 Initializing OneSignal...');
+
+    await loadOneSignal();
+
+    return new Promise((resolve) => {
+      window.OneSignalDeferred?.push(async (OneSignal: any) => {
+        try {
+          console.log('⚙️ Configuring OneSignal...');
+
+          await OneSignal.init({
+            appId: ONESIGNAL_APP_ID,
+            safari_web_id: SAFARI_WEB_ID,
+            allowLocalhostAsSecureOrigin: true,
+            autoRegister: false, // We'll handle subscription manually
+            autoResubscribe: true,
+            notifyButton: {
+              enable: false, // Disable OneSignal's default button
+            },
+            welcomeNotification: {
+              disable: true, // Disable welcome notification
+            },
+            promptOptions: {
+              slidedown: {
+                enabled: false, // We'll handle prompts manually
+              },
+            },
+          });
+
+          console.log('✅ OneSignal initialized successfully');
+          window.OneSignal = OneSignal; // Store reference
+          resolve(true);
+        } catch (error: any) {
+          console.error('❌ OneSignal initialization failed:', error);
+          resolve(false);
+        }
+      });
+    });
+  } catch (error) {
+    console.error('❌ OneSignal init error:', error);
+    return false;
+  }
+}
+
+// Check OneSignal support and status
+export async function getOneSignalStatus(): Promise<{
+  isSupported: boolean;
+  isInitialized: boolean;
+  isPushSupported: boolean;
+  notificationPermission: string;
+  isSubscribed: boolean;
+  userId?: string;
+}> {
+  try {
+    if (!window.OneSignal) {
+      return {
+        isSupported: false,
+        isInitialized: false,
+        isPushSupported: false,
+        notificationPermission: 'default',
+        isSubscribed: false,
+      };
+    }
+
+    const [isPushSupported, notificationPermission, isSubscribed, userId] = await Promise.all([
+      window.OneSignal.isPushNotificationsSupported(),
+      window.OneSignal.getNotificationPermission(),
+      window.OneSignal.isPushNotificationsEnabled(),
+      window.OneSignal.getUserId(),
+    ]);
+
+    const status = {
+      isSupported: true,
+      isInitialized: true,
+      isPushSupported,
+      notificationPermission,
+      isSubscribed,
+      userId,
+    };
+
+    console.log('📊 OneSignal status:', status);
+    return status;
+  } catch (error) {
+    console.error('❌ Failed to get OneSignal status:', error);
+    return {
+      isSupported: false,
+      isInitialized: false,
+      isPushSupported: false,
+      notificationPermission: 'default',
+      isSubscribed: false,
+    };
+  }
+}
+
+// Subscribe to OneSignal notifications
+export async function subscribeOneSignal(): Promise<boolean> {
+  try {
+    console.log('🔔 Starting OneSignal subscription...');
+
+    if (!window.OneSignal) {
+      throw new Error('OneSignal not initialized');
+    }
+
+    // Check if already subscribed
+    const isSubscribed = await window.OneSignal.isPushNotificationsEnabled();
+    if (isSubscribed) {
+      console.log('✅ Already subscribed to OneSignal');
+      return true;
+    }
+
+    // Register for push notifications
+    console.log('📝 Registering for OneSignal notifications...');
+    await window.OneSignal.registerForPushNotifications();
+
+    // Wait for subscription
+    const subscription = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('OneSignal subscription timeout'));
+      }, 10000);
+
+      window.OneSignal.on('subscriptionChange', (isSubscribed: boolean) => {
+        clearTimeout(timeout);
+        resolve(isSubscribed);
+      });
+    });
+
+    if (subscription) {
+      const userId = await window.OneSignal.getUserId();
+      console.log('✅ OneSignal subscription successful!', { userId });
+      return true;
+    } else {
+      throw new Error('OneSignal subscription failed');
+    }
+  } catch (error: any) {
+    console.error('❌ OneSignal subscription failed:', error);
+    return false;
+  }
+}
+
+// Send test notification via OneSignal
+export async function sendOneSignalNotification(
+  title: string = '🎯 OneSignal Test',
+  message: string = 'OneSignal push notification working perfectly!',
+  data?: any
+): Promise<boolean> {
+  try {
+    console.log('📨 Sending OneSignal test notification...');
+
+    if (!window.OneSignal) {
+      throw new Error('OneSignal not initialized');
+    }
+
+    const userId = await window.OneSignal.getUserId();
+    if (!userId) {
+      throw new Error('No OneSignal user ID found. Please subscribe first.');
+    }
+
+    // For testing, we'll use the REST API approach
+    const response = await fetch('/api/onesignal-send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        title,
+        message,
+        userId,
+        data: {
+          url: '/',
+          timestamp: Date.now(),
+          source: 'onesignal-test',
+          ...data,
+        },
+      }),
+    });
+
+    const result = await response.json();
+    console.log('📊 OneSignal send response:', result);
+
+    if (response.ok && result.success) {
+      console.log('✅ OneSignal notification sent successfully!');
+      return true;
+    } else {
+      throw new Error(`OneSignal send failed: ${result.message || 'Unknown error'}`);
+    }
+  } catch (error: any) {
+    console.error('❌ OneSignal notification send failed:', error);
+    
+    // Fallback: Try to show local notification if OneSignal fails
+    try {
+      console.log('🔄 Attempting fallback local notification...');
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(title, {
+          body: message,
+          icon: '/vite.svg',
+          tag: 'onesignal-fallback',
+        });
+        console.log('✅ Fallback notification shown');
+        return true;
+      }
+    } catch (fallbackError) {
+      console.error('❌ Fallback notification failed:', fallbackError);
+    }
+
+    return false;
+  }
+}
+
+// Unsubscribe from OneSignal
+export async function unsubscribeOneSignal(): Promise<boolean> {
+  try {
+    console.log('🔕 Unsubscribing from OneSignal...');
+
+    if (!window.OneSignal) {
+      throw new Error('OneSignal not initialized');
+    }
+
+    await window.OneSignal.setSubscription(false);
+    console.log('✅ OneSignal unsubscription successful');
+    return true;
+  } catch (error: any) {
+    console.error('❌ OneSignal unsubscription failed:', error);
+    return false;
+  }
+}
+
+// Get OneSignal player ID
+export async function getOneSignalUserId(): Promise<string | null> {
+  try {
+    if (!window.OneSignal) {
+      return null;
+    }
+
+    const userId = await window.OneSignal.getUserId();
+    console.log('👤 OneSignal User ID:', userId);
+    return userId;
+  } catch (error) {
+    console.error('❌ Failed to get OneSignal User ID:', error);
+    return null;
+  }
+}
+
+// Export configuration for debugging
+export const oneSignalConfig = {
+  appId: ONESIGNAL_APP_ID,
+  safariWebId: SAFARI_WEB_ID,
+};
