@@ -204,6 +204,13 @@ export async function subscribeToPushNotifications(): Promise<PushSubscription |
     }
 
     console.log('Push subscription validation successful');
+    
+    // Step 7: Send subscription to server for real push notifications
+    const serverResult = await sendSubscriptionToServer(subscription);
+    if (!serverResult) {
+      console.warn('⚠️ Failed to send subscription to server, but client subscription is valid');
+    }
+    
     return subscription;
 
   } catch (error) {
@@ -212,62 +219,76 @@ export async function subscribeToPushNotifications(): Promise<PushSubscription |
   }
 }
 
-// Send subscription to server (mock implementation for now)
+// Send subscription to server (real server implementation)
 export async function sendSubscriptionToServer(subscription: PushSubscription): Promise<boolean> {
   try {
     const subscriptionData = subscription.toJSON();
     console.log('Sending subscription to server:', subscriptionData);
 
-    // In a real app, this would send to your backend
-    // For testing, we'll just store in localStorage
-    localStorage.setItem('pushSubscription', JSON.stringify(subscriptionData));
-    
-    console.log('Subscription stored successfully');
-    return true;
+    const response = await fetch('/api/subscribe', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        subscription: subscriptionData
+      }),
+    });
+
+    const result = await response.json();
+    console.log('Server response:', result);
+
+    if (response.ok) {
+      localStorage.setItem('pushSubscription', JSON.stringify(subscriptionData));
+      console.log('✅ Subscription sent to server successfully');
+      return true;
+    } else {
+      throw new Error(`Server error: ${result.error || 'Unknown error'}`);
+    }
   } catch (error) {
-    console.error('Failed to send subscription to server:', error);
+    console.error('❌ Failed to send subscription to server:', error);
     return false;
   }
 }
 
-// Send test notification (client-side for demo)
+// Send test notification through server (real push notification)
 export async function sendTestNotification(payload?: Partial<NotificationPayload>): Promise<boolean> {
   try {
-    console.log('Sending test notification...');
+    console.log('🔔 Sending real push notification through server...');
 
     const notificationData: NotificationPayload = {
       title: '🚀 React Push Test',
-      body: 'Push notification working perfectly from React app!',
+      body: 'Real push notification from server! Check your phone! 📱',
       icon: '/vite.svg',
       tag: 'react-push-test',
       data: {
         url: '/',
         timestamp: Date.now(),
-        source: 'react-app'
+        source: 'server-push'
       },
       ...payload
     };
 
-    // For testing, create a direct notification
-    // In production, this would trigger a server-side push
-    const notification = new Notification(notificationData.title, {
-      body: notificationData.body,
-      icon: notificationData.icon,
-      tag: notificationData.tag,
-      requireInteraction: false,
-      data: notificationData.data
+    const response = await fetch('/api/send-notification', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(notificationData),
     });
 
-    notification.onclick = () => {
-      console.log('Test notification clicked');
-      window.focus();
-      notification.close();
-    };
+    const result = await response.json();
+    console.log('📨 Server push response:', result);
 
-    console.log('Test notification sent successfully');
-    return true;
+    if (response.ok && result.success) {
+      console.log('✅ Real push notification sent successfully!');
+      console.log(`📊 Delivered to ${result.summary?.successful} devices`);
+      return true;
+    } else {
+      throw new Error(`Server push failed: ${result.message || 'Unknown error'}`);
+    }
   } catch (error) {
-    console.error('Failed to send test notification:', error);
+    console.error('❌ Real push notification failed:', error);
     return false;
   }
 }
