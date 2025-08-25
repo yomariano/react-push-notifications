@@ -60,6 +60,13 @@ export async function initOneSignal(): Promise<boolean> {
   try {
     console.log('🚀 Initializing OneSignal...');
 
+    // Check if current domain is supported
+    const currentDomain = window.location.hostname;
+    if (!currentDomain.includes('signalstrading.app') && currentDomain !== 'localhost') {
+      console.warn('⚠️ OneSignal may not work on this domain:', currentDomain);
+      console.warn('💡 OneSignal is configured for signalstrading.app domain');
+    }
+
     await loadOneSignal();
 
     return new Promise((resolve) => {
@@ -91,6 +98,17 @@ export async function initOneSignal(): Promise<boolean> {
           resolve(true);
         } catch (error: any) {
           console.error('❌ OneSignal initialization failed:', error);
+          
+          // Check if it's a domain error
+          if (error.message?.includes('Can only be used on')) {
+            console.warn('🔒 OneSignal domain restriction detected');
+            console.warn('💡 This OneSignal app is configured for a different domain');
+            console.warn('🔧 You can either:');
+            console.warn('   1. Update OneSignal app settings to allow react.signalstrading.app');
+            console.warn('   2. Access the app from https://signalstrading.app instead');
+            console.warn('   3. Test the Web Push API instead (which works on any domain)');
+          }
+          
           resolve(false);
         }
       });
