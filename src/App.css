@@ -526,3 +526,46 @@ html {
 .log-container::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/* Debug Alerts */
+.debug-alert {
+  margin: 1rem 0;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 2px solid;
+  font-size: 14px;
+}
+
+.debug-alert h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.debug-alert p {
+  margin: 0.25rem 0;
+}
+
+.debug-alert.warning {
+  background: #fef3c7;
+  border-color: #f59e0b;
+  color: #92400e;
+}
+
+.debug-alert.error {
+  background: #fee2e2;
+  border-color: #ef4444;
+  color: #b91c1c;
+}
+
+.debug-alert.info {
+  background: #dbeafe;
+  border-color: #3b82f6;
+  color: #1d4ed8;
+}
+
+.debug-alert.success {
+  background: #d1fae5;
+  border-color: #10b981;
+  color: #065f46;
+}

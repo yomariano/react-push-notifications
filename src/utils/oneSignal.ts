@@ -241,6 +241,15 @@ export async function subscribeOneSignal(): Promise<boolean> {
 
     // OneSignal v16 subscription approach
     console.log('📝 Registering for OneSignal notifications...');
+    console.log('🔍 Debug: Checking OneSignal object structure:', {
+      hasOneSignal: !!window.OneSignal,
+      oneSignalType: typeof window.OneSignal,
+      hasNotifications: !!(window.OneSignal && window.OneSignal.Notifications),
+      hasUser: !!(window.OneSignal && window.OneSignal.User),
+      hasPushSubscription: !!(window.OneSignal && window.OneSignal.User && window.OneSignal.User.PushSubscription),
+      availableMethods: window.OneSignal ? Object.getOwnPropertyNames(window.OneSignal).filter(name => typeof window.OneSignal[name] === 'function') : []
+    });
+    
     try {
       // OneSignal v16 uses the login method to trigger subscription
       console.log('Attempting OneSignal v16 subscription methods...');

@@ -9,7 +9,7 @@ import {
   unsubscribeFromPushNotifications,
   VAPID_PUBLIC_KEY
 } from '../utils/pushNotifications';
-import { apiClient } from '../config/api';
+import { apiClient, API_CONFIG } from '../config/api';
 import {
   initOneSignal,
   getOneSignalStatus,
@@ -443,6 +443,136 @@ const PushNotificationTester: React.FC = () => {
     }
   };
 
+  // Debug OneSignal comprehensive status
+  const handleDebugOneSignal = async () => {
+    setIsLoading(true);
+    try {
+      addLog('info', '🔍 Starting comprehensive OneSignal debugging...');
+      
+      // Check if OneSignal is loaded
+      if (typeof window !== 'undefined' && (window as any).OneSignal) {
+        addLog('success', '✅ OneSignal SDK loaded successfully');
+        
+        try {
+          // Get comprehensive status
+          const status = await getOneSignalStatus();
+          addLog('info', '📊 OneSignal Status Details:', {
+            isSupported: status.isSupported,
+            isInitialized: status.isInitialized,
+            isPushSupported: status.isPushSupported,
+            notificationPermission: status.notificationPermission,
+            isSubscribed: status.isSubscribed,
+            userId: status.userId
+          });
+          
+          // Try to get more debug info
+          const oneSignal = (window as any).OneSignal;
+          
+          // Check available methods
+          const availableMethods = [];
+          const methodsToCheck = [
+            'isPushNotificationsEnabled',
+            'isPushNotificationsSupported', 
+            'getNotificationPermission',
+            'getUserId',
+            'getSubscription',
+            'login',
+            'setSubscription',
+            'requestPermission'
+          ];
+          
+          for (const method of methodsToCheck) {
+            if (typeof oneSignal[method] === 'function') {
+              availableMethods.push(method);
+            }
+          }
+          
+          addLog('info', '🔧 Available OneSignal methods:', availableMethods);
+          
+          // Check if user is actually subscribed
+          if (status.userId) {
+            addLog('success', `🎯 OneSignal User ID found: ${status.userId}`);
+            addLog('info', '💡 This user ID should receive notifications from the backend');
+          } else {
+            addLog('warning', '⚠️ No OneSignal User ID found - this is likely the issue!');
+            addLog('info', '💡 Try subscribing to OneSignal first');
+          }
+          
+          // Check browser and device info
+          addLog('info', '📱 Browser & Device Info:', {
+            userAgent: navigator.userAgent,
+            platform: navigator.platform,
+            language: navigator.language,
+            cookieEnabled: navigator.cookieEnabled,
+            onLine: navigator.onLine,
+            serviceWorker: 'serviceWorker' in navigator,
+            pushManager: 'PushManager' in window,
+            notification: 'Notification' in window,
+            permissions: typeof navigator.permissions !== 'undefined'
+          });
+          
+          // Check current page info
+          addLog('info', '🌐 Current Page Info:', {
+            protocol: window.location.protocol,
+            host: window.location.host,
+            pathname: window.location.pathname,
+            isSecure: window.location.protocol === 'https:',
+            domain: window.location.hostname
+          });
+          
+        } catch (error) {
+          addLog('error', '❌ Error getting OneSignal debug info:', error);
+        }
+      } else {
+        addLog('error', '❌ OneSignal SDK not loaded');
+        addLog('info', '💡 Try refreshing the page or check for console errors');
+      }
+      
+      // Check notification permission
+      if ('Notification' in window) {
+        addLog('info', `🔔 Notification Permission: ${Notification.permission}`);
+        if (Notification.permission === 'denied') {
+          addLog('warning', '⚠️ Notification permission is DENIED - this will prevent push notifications!');
+          addLog('info', '💡 To fix: Go to browser settings and enable notifications for this site');
+        }
+      }
+      
+    } catch (error: any) {
+      addLog('error', '❌ OneSignal debug failed:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Test backend connection and health
+  const handleTestBackendConnection = async () => {
+    setIsLoading(true);
+    try {
+      addLog('info', '🌐 Testing backend server connection...');
+      
+      const healthResponse = await apiClient.healthCheck();
+      addLog('success', '✅ Backend server is healthy!', healthResponse);
+      
+      // Test VAPID key endpoint
+      try {
+        const vapidResponse = await apiClient.getVapidKey();
+        addLog('success', '✅ VAPID key retrieved from backend:', {
+          publicKey: vapidResponse.publicKey.substring(0, 30) + '...'
+        });
+      } catch (error) {
+        addLog('error', '❌ Failed to get VAPID key from backend:', error);
+      }
+      
+      addLog('info', '💡 Backend connection is working - the issue is likely with OneSignal subscription');
+      
+    } catch (error: any) {
+      addLog('error', '❌ Backend connection test failed:', error);
+      addLog('info', '💡 Check if server.signalstrading.app is accessible');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (!isInitialized) {
     return <div className="loading">Initializing Push Notification Tester...</div>;
   }
@@ -501,7 +631,34 @@ const PushNotificationTester: React.FC = () => {
             <span className="status-label">OS Subscription:</span>
             <span className="status-value">{oneSignalStatus.isSubscribed ? '✅ Active' : '❌ None'}</span>
           </div>
+          
+          {oneSignalStatus.userId && (
+            <div className="status-item subscribed">
+              <span className="status-label">User ID:</span>
+              <span className="status-value" title={oneSignalStatus.userId}>
+                {oneSignalStatus.userId.substring(0, 8)}...
+              </span>
+            </div>
+          )}
         </div>
+        
+        {!oneSignalStatus.isSubscribed && oneSignalStatus.isInitialized && (
+          <div className="debug-alert warning">
+            <h4>⚠️ OneSignal Debug Alert</h4>
+            <p><strong>Issue:</strong> OneSignal is initialized but not subscribed</p>
+            <p><strong>Solution:</strong> Click "🎯 Subscribe OneSignal" above</p>
+            <p><strong>Why:</strong> Backend can't send notifications without a OneSignal subscription</p>
+          </div>
+        )}
+        
+        {oneSignalStatus.notificationPermission === 'denied' && (
+          <div className="debug-alert error">
+            <h4>❌ Notification Permission Denied</h4>
+            <p><strong>Issue:</strong> Browser notifications are blocked</p>
+            <p><strong>Solution:</strong> Enable notifications in browser settings</p>
+            <p><strong>Firefox Mobile:</strong> Site Settings → Notifications → Allow</p>
+          </div>
+        )}
         
         {status.subscription && (
           <div className="subscription-details">
@@ -639,6 +796,22 @@ const PushNotificationTester: React.FC = () => {
           >
             {isLoading ? '⏳ Checking...' : '🎯 Refresh OneSignal'}
           </button>
+          
+          <button 
+            onClick={handleDebugOneSignal}
+            disabled={isLoading}
+            className="action-button test"
+          >
+            {isLoading ? '⏳ Debugging...' : '🔍 Debug OneSignal'}
+          </button>
+          
+          <button 
+            onClick={handleTestBackendConnection}
+            disabled={isLoading}
+            className="action-button refresh"
+          >
+            {isLoading ? '⏳ Testing...' : '🌐 Test Backend'}
+          </button>
         </div>
       </div>
 
@@ -689,6 +862,22 @@ const PushNotificationTester: React.FC = () => {
         
         <p><strong>📱 Mobile Testing:</strong> Look at your phone/device for the notifications after clicking test buttons!</p>
         
+        <div className="debug-alert info">
+          <h4>🔍 Quick Debugging Steps</h4>
+          <p><strong>1.</strong> Click "🔍 Debug OneSignal" to check subscription status</p>
+          <p><strong>2.</strong> Click "🌐 Test Backend" to verify server connection</p>
+          <p><strong>3.</strong> Check the Activity Log below for detailed debugging info</p>
+          <p><strong>4.</strong> Make sure notification permissions are granted</p>
+          <p><strong>5.</strong> Ensure OneSignal subscription shows "✅ Active" above</p>
+        </div>
+        
+        <div className="debug-alert warning">
+          <h4>📱 Firefox Mobile Specific</h4>
+          <p><strong>Common Issue:</strong> Firefox mobile may block notifications by default</p>
+          <p><strong>Fix:</strong> Menu → Settings → Site Settings → react.signalstrading.app → Notifications → Allow</p>
+          <p><strong>Alternative:</strong> Try testing on Chrome mobile first to isolate the issue</p>
+        </div>
+        
         <div className="technical-info">
           <h3>🔧 Technical Details</h3>
           <h4>Web Push API:</h4>
@@ -702,6 +891,7 @@ const PushNotificationTester: React.FC = () => {
           <h4>Environment:</h4>
           <p><strong>Protocol:</strong> {window.location.protocol}</p>
           <p><strong>Host:</strong> {window.location.host}</p>
+          <p><strong>Backend:</strong> {API_CONFIG.baseURL}</p>
         </div>
       </div>
     </div>
