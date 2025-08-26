@@ -130,9 +130,9 @@ const PushNotificationTester: React.FC = () => {
         addLog('success', 'OneSignal initialized successfully');
         await checkOneSignalStatus();
       } else {
-        addLog('warning', 'OneSignal initialization failed - likely domain restriction');
-        addLog('info', 'OneSignal is configured for signalstrading.app domain only');
-        addLog('info', '💡 Try the Web Push API instead - it works on any domain!');
+        addLog('warning', 'OneSignal initialization failed');
+        addLog('info', 'If you updated OneSignal domain settings, try refreshing the page');
+        addLog('info', '💡 Web Push API is always available as an alternative!');
       }
       
       setIsInitialized(true);
