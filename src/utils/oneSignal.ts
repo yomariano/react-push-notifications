@@ -209,6 +209,12 @@ export async function getOneSignalStatus(): Promise<{
       userId = undefined;
     }
 
+    // Fallback: If we have a valid userId but isSubscribed is false, treat as subscribed
+    if (!isSubscribed && userId) {
+      console.log('🔧 Status override: Have User ID but subscription status is false, treating as subscribed');
+      isSubscribed = true;
+    }
+
     const status = {
       isSupported: true,
       isInitialized: true,
