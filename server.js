@@ -16,7 +16,22 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static('dist'));
+
+// Serve static files with proper MIME types for service workers
+app.use(express.static('dist', {
+  setHeaders: (res, path) => {
+    // Set correct MIME type for service worker files
+    if (path.endsWith('.js') || path.includes('ServiceWorker') || path.includes('sw.js')) {
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    }
+    // Set proper cache headers for service workers (no cache)
+    if (path.includes('OneSignal') && path.includes('.js')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
+}));
 
 // VAPID keys (from your environment)
 const VAPID_PUBLIC_KEY = 'BLgcx_kxWLsqiOF6ZcgZZ1c9ULSo1bTV_rrFCQlHCZqdz2dpJYFSPd5wUVVD8tgi4o4BV-chSiGP3OEIXNLsDx8';
