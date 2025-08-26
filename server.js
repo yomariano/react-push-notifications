@@ -231,7 +231,66 @@ app.delete('/api/subscriptions', (req, res) => {
   });
 });
 
-// OneSignal API endpoint
+// Send to ALL OneSignal subscribers (broadcast)
+app.post('/api/onesignal-broadcast', async (req, res) => {
+  console.log('📡 OneSignal broadcast notification request received');
+  
+  const { title, message, data, filters } = req.body;
+  
+  try {
+    console.log('📢 Broadcasting OneSignal notification to all users');
+    
+    // OneSignal REST API call for broadcast
+    const oneSignalResponse = await fetch('https://onesignal.com/api/v1/notifications', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Basic ${process.env.ONESIGNAL_API_KEY || 'os_v2_app_7cgvvzhhmzdb7pyasbyhyg4fb2rzzg2wgopebeeod643vm43qbfradrvoiqqgev2sdvay5f7ho2yinxlgbvf355inm6ndr6fpzuzglq'}`
+      },
+      body: JSON.stringify({
+        app_id: 'f88d5ae4-e766-461f-bf00-90707c1b850e',
+        included_segments: ['Subscribed Users'], // Send to all subscribed users
+        filters: filters || [], // Optional user filtering
+        headings: { en: title || '🚨 Trading Alert' },
+        contents: { en: message || 'New trading signal available!' },
+        data: {
+          url: '/',
+          timestamp: Date.now(),
+          source: 'broadcast-notification',
+          ...data
+        },
+        web_url: 'https://react.signalstrading.app/',
+        chrome_web_icon: 'https://react.signalstrading.app/vite.svg',
+        firefox_icon: 'https://react.signalstrading.app/vite.svg'
+      })
+    });
+    
+    const oneSignalResult = await oneSignalResponse.json();
+    console.log('📊 OneSignal broadcast response:', oneSignalResult);
+    
+    if (oneSignalResponse.ok && oneSignalResult.id) {
+      console.log('✅ OneSignal broadcast sent successfully:', oneSignalResult.id);
+      res.json({
+        success: true,
+        message: 'OneSignal broadcast sent successfully',
+        notificationId: oneSignalResult.id,
+        recipients: oneSignalResult.recipients || 'all'
+      });
+    } else {
+      throw new Error(`OneSignal API error: ${oneSignalResult.errors || 'Unknown error'}`);
+    }
+    
+  } catch (error) {
+    console.error('❌ OneSignal broadcast failed:', error);
+    res.status(500).json({
+      error: 'OneSignal broadcast failed',
+      message: error.message,
+      details: error
+    });
+  }
+});
+
+// OneSignal API endpoint for specific user
 app.post('/api/onesignal-send', async (req, res) => {
   console.log('📨 OneSignal notification request received');
   
@@ -293,6 +352,212 @@ app.post('/api/onesignal-send', async (req, res) => {
       error: 'OneSignal notification failed',
       message: error.message,
       details: error
+    });
+  }
+});
+
+// Conditional notification endpoints for trading signals
+app.post('/api/trading-signal', async (req, res) => {
+  console.log('💹 Trading signal received - checking conditions...');
+  
+  const { 
+    symbol, 
+    price, 
+    action, 
+    confidence, 
+    stopLoss, 
+    takeProfit,
+    userId = null // Optional: specific user, or broadcast to all
+  } = req.body;
+  
+  try {
+    // Example condition: Only send high confidence signals
+    if (confidence < 75) {
+      console.log('⚠️ Signal confidence too low, skipping notification');
+      return res.json({
+        success: true,
+        message: 'Signal received but confidence too low for notification',
+        notified: false
+      });
+    }
+    
+    // Build notification content
+    const title = `🎯 ${action.toUpperCase()} Signal: ${symbol}`;
+    const message = `${symbol} at $${price} | Confidence: ${confidence}% | SL: $${stopLoss} | TP: $${takeProfit}`;
+    
+    const notificationData = {
+      signal: {
+        symbol,
+        price,
+        action,
+        confidence,
+        stopLoss,
+        takeProfit,
+        timestamp: Date.now()
+      },
+      url: `/signals/${symbol.toLowerCase()}`
+    };
+    
+    let notificationResult;
+    
+    if (userId) {
+      // Send to specific user
+      console.log('📤 Sending targeted signal notification to user:', userId);
+      notificationResult = await fetch(`${req.protocol}://${req.get('host')}/api/onesignal-send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          message,
+          userId,
+          data: notificationData
+        })
+      });
+    } else {
+      // Broadcast to all users
+      console.log('📡 Broadcasting signal notification to all users');
+      notificationResult = await fetch(`${req.protocol}://${req.get('host')}/api/onesignal-broadcast`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          message,
+          data: notificationData
+        })
+      });
+    }
+    
+    const result = await notificationResult.json();
+    
+    res.json({
+      success: true,
+      message: 'Trading signal processed and notification sent',
+      signal: { symbol, action, price, confidence },
+      notification: result,
+      notified: true
+    });
+    
+  } catch (error) {
+    console.error('❌ Trading signal notification failed:', error);
+    res.status(500).json({
+      error: 'Trading signal notification failed',
+      message: error.message
+    });
+  }
+});
+
+// Price alert endpoint
+app.post('/api/price-alert', async (req, res) => {
+  console.log('💰 Price alert check received...');
+  
+  const { symbol, currentPrice, targetPrice, alertType, userId } = req.body;
+  
+  try {
+    let shouldAlert = false;
+    let alertMessage = '';
+    
+    // Check alert conditions
+    if (alertType === 'above' && currentPrice >= targetPrice) {
+      shouldAlert = true;
+      alertMessage = `${symbol} reached $${currentPrice} (above target $${targetPrice})`;
+    } else if (alertType === 'below' && currentPrice <= targetPrice) {
+      shouldAlert = true;
+      alertMessage = `${symbol} dropped to $${currentPrice} (below target $${targetPrice})`;
+    }
+    
+    if (!shouldAlert) {
+      return res.json({
+        success: true,
+        message: 'Price checked but alert conditions not met',
+        notified: false,
+        currentPrice,
+        targetPrice
+      });
+    }
+    
+    // Send alert notification
+    const title = `🚨 Price Alert: ${symbol}`;
+    const notificationResult = await fetch(`${req.protocol}://${req.get('host')}/api/onesignal-${userId ? 'send' : 'broadcast'}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title,
+        message: alertMessage,
+        ...(userId && { userId }),
+        data: {
+          alert: { symbol, currentPrice, targetPrice, alertType },
+          url: `/alerts/${symbol.toLowerCase()}`
+        }
+      })
+    });
+    
+    const result = await notificationResult.json();
+    
+    res.json({
+      success: true,
+      message: 'Price alert triggered and notification sent',
+      alert: { symbol, currentPrice, targetPrice, alertType },
+      notification: result,
+      notified: true
+    });
+    
+  } catch (error) {
+    console.error('❌ Price alert notification failed:', error);
+    res.status(500).json({
+      error: 'Price alert notification failed',
+      message: error.message
+    });
+  }
+});
+
+// Market event endpoint
+app.post('/api/market-event', async (req, res) => {
+  console.log('📈 Market event received...');
+  
+  const { eventType, title, message, severity = 'normal', userId = null } = req.body;
+  
+  try {
+    // Only send high severity events
+    if (severity === 'low') {
+      return res.json({
+        success: true,
+        message: 'Event received but severity too low for notification',
+        notified: false
+      });
+    }
+    
+    const eventTitle = title || `📈 Market Event: ${eventType}`;
+    const eventIcon = severity === 'high' ? '🚨' : '📊';
+    
+    const notificationResult = await fetch(`${req.protocol}://${req.get('host')}/api/onesignal-${userId ? 'send' : 'broadcast'}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: `${eventIcon} ${eventTitle}`,
+        message,
+        ...(userId && { userId }),
+        data: {
+          event: { eventType, severity, timestamp: Date.now() },
+          url: '/market-events'
+        }
+      })
+    });
+    
+    const result = await notificationResult.json();
+    
+    res.json({
+      success: true,
+      message: 'Market event processed and notification sent',
+      event: { eventType, severity },
+      notification: result,
+      notified: true
+    });
+    
+  } catch (error) {
+    console.error('❌ Market event notification failed:', error);
+    res.status(500).json({
+      error: 'Market event notification failed',
+      message: error.message
     });
   }
 });

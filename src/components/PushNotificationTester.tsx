@@ -324,6 +324,131 @@ const PushNotificationTester: React.FC = () => {
     }
   };
 
+  // Programmatic notification handlers
+  const handleTradingSignalTest = async () => {
+    setIsLoading(true);
+    try {
+      addLog('info', 'Testing programmatic trading signal...');
+      
+      const response = await fetch('/api/trading-signal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbol: 'AAPL',
+          price: 150.25,
+          action: 'BUY',
+          confidence: 85,
+          stopLoss: 145.00,
+          takeProfit: 160.00
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        addLog('success', 'Trading signal notification sent!', result);
+      } else {
+        throw new Error(result.message || 'Trading signal failed');
+      }
+    } catch (error: any) {
+      addLog('error', `Trading signal test failed: ${error.message}`, error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePriceAlertTest = async () => {
+    setIsLoading(true);
+    try {
+      addLog('info', 'Testing programmatic price alert...');
+      
+      const response = await fetch('/api/price-alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbol: 'BTC',
+          currentPrice: 52000,
+          targetPrice: 50000,
+          alertType: 'above'
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        addLog('success', 'Price alert notification sent!', result);
+      } else {
+        addLog('info', 'Price alert conditions not met (expected for demo)', result);
+      }
+    } catch (error: any) {
+      addLog('error', `Price alert test failed: ${error.message}`, error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleMarketEventTest = async () => {
+    setIsLoading(true);
+    try {
+      addLog('info', 'Testing programmatic market event...');
+      
+      const response = await fetch('/api/market-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventType: 'EARNINGS',
+          title: 'Apple Q4 Results',
+          message: 'Apple beats earnings expectations by 15% - Stock surging in after-hours trading',
+          severity: 'high'
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        addLog('success', 'Market event notification sent!', result);
+      } else {
+        throw new Error(result.message || 'Market event failed');
+      }
+    } catch (error: any) {
+      addLog('error', `Market event test failed: ${error.message}`, error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleBroadcastTest = async () => {
+    setIsLoading(true);
+    try {
+      addLog('info', 'Testing programmatic broadcast...');
+      
+      const response = await fetch('/api/onesignal-broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: '📡 Broadcast Test',
+          message: 'This is a programmatic broadcast notification sent to all subscribed users!',
+          data: {
+            testType: 'broadcast',
+            timestamp: Date.now()
+          }
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        addLog('success', 'Broadcast notification sent to all users!', result);
+      } else {
+        throw new Error(result.message || 'Broadcast failed');
+      }
+    } catch (error: any) {
+      addLog('error', `Broadcast test failed: ${error.message}`, error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (!isInitialized) {
     return <div className="loading">Initializing Push Notification Tester...</div>;
   }
@@ -465,6 +590,41 @@ const PushNotificationTester: React.FC = () => {
             className="action-button unsubscribe"
           >
             {isLoading ? '⏳ Unsubscribing...' : '🚫 Unsubscribe OneSignal'}
+          </button>
+        </div>
+
+        <h3>🤖 Programmatic Notifications</h3>
+        <div className="button-grid">
+          <button 
+            onClick={handleTradingSignalTest}
+            disabled={isLoading}
+            className="action-button test"
+          >
+            {isLoading ? '⏳ Sending...' : '💹 Test Trading Signal'}
+          </button>
+          
+          <button 
+            onClick={handlePriceAlertTest}
+            disabled={isLoading}
+            className="action-button test"
+          >
+            {isLoading ? '⏳ Sending...' : '🚨 Test Price Alert'}
+          </button>
+          
+          <button 
+            onClick={handleMarketEventTest}
+            disabled={isLoading}
+            className="action-button test"
+          >
+            {isLoading ? '⏳ Sending...' : '📈 Test Market Event'}
+          </button>
+          
+          <button 
+            onClick={handleBroadcastTest}
+            disabled={isLoading}
+            className="action-button multiple"
+          >
+            {isLoading ? '⏳ Broadcasting...' : '📡 Test Broadcast'}
           </button>
         </div>
 
