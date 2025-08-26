@@ -18,6 +18,7 @@ import {
   unsubscribeOneSignal,
   oneSignalConfig
 } from '../utils/oneSignal';
+import { getMobileDebugInfo, formatDebugInfo, testBasicNotification } from '../utils/mobileDebug';
 
 interface PushStatus {
   isSupported: boolean;
@@ -316,6 +317,61 @@ const PushNotificationTester: React.FC = () => {
   const clearLogs = () => {
     setLogs([]);
     addLog('info', 'Logs cleared');
+  };
+
+  // Mobile debug diagnostics
+  const handleMobileDebug = async () => {
+    setIsLoading(true);
+    try {
+      addLog('info', 'Running mobile debug diagnostics...');
+      
+      const debugInfo = await getMobileDebugInfo();
+      const formattedInfo = formatDebugInfo(debugInfo);
+      
+      // Log each line separately for better readability
+      formattedInfo.split('\n').forEach(line => {
+        if (line.trim()) {
+          if (line.includes('❌') || line.includes('Issues Found')) {
+            addLog('error', line);
+          } else if (line.includes('💡') || line.includes('Recommendations')) {
+            addLog('warning', line);
+          } else if (line.includes('✅')) {
+            addLog('success', line);
+          } else {
+            addLog('info', line);
+          }
+        }
+      });
+      
+      addLog('info', '📱 Mobile debug diagnostics completed');
+      
+    } catch (error: any) {
+      addLog('error', `Mobile debug failed: ${error.message}`, error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Test basic browser notification
+  const handleBasicNotificationTest = async () => {
+    setIsLoading(true);
+    try {
+      addLog('info', 'Testing basic browser notification...');
+      
+      const result = await testBasicNotification();
+      
+      if (result.success) {
+        addLog('success', `✅ ${result.message}`);
+        addLog('info', 'Check if you received a test notification on your device');
+      } else {
+        addLog('error', `❌ ${result.message}`);
+      }
+      
+    } catch (error: any) {
+      addLog('error', `Basic notification test failed: ${error.message}`, error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Copy subscription details
@@ -854,6 +910,43 @@ const PushNotificationTester: React.FC = () => {
           >
             {isLoading ? '⏳ Testing...' : '🌐 Test Backend'}
           </button>
+        </div>
+      </div>
+
+      {/* Mobile Debug Section */}
+      <div className="action-panel">
+        <h2>📱 Mobile Debug Tools</h2>
+        <p className="section-description">
+          Troubleshoot push notification issues on mobile devices
+        </p>
+        
+        <div className="button-grid">
+          <button 
+            onClick={handleMobileDebug}
+            disabled={isLoading}
+            className="action-button refresh"
+          >
+            {isLoading ? '⏳ Diagnosing...' : '🔍 Mobile Diagnostics'}
+          </button>
+          
+          <button 
+            onClick={handleBasicNotificationTest}
+            disabled={isLoading}
+            className="action-button test"
+          >
+            {isLoading ? '⏳ Testing...' : '🧪 Test Browser Notification'}
+          </button>
+        </div>
+        
+        <div className="debug-tips">
+          <h3>📋 Mobile Troubleshooting Tips</h3>
+          <ul>
+            <li><strong>Firefox Mobile:</strong> Works well, try it first</li>
+            <li><strong>Chrome Android:</strong> Excellent support</li>
+            <li><strong>Safari iOS:</strong> Limited support, use Chrome/Firefox</li>
+            <li><strong>HTTPS Required:</strong> Push notifications need secure connection</li>
+            <li><strong>Browser Settings:</strong> Check notification permissions</li>
+          </ul>
         </div>
       </div>
 
