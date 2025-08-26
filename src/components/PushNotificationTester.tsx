@@ -340,8 +340,14 @@ const PushNotificationTester: React.FC = () => {
         takeProfit: 160.00
       });
       
-      if (result.success) {
+      if (result.success && result.notified) {
         addLog('success', 'Trading signal notification sent!', result);
+      } else if (result.error === 'NO_SUBSCRIBERS') {
+        addLog('warning', 'Trading signal processed but no OneSignal subscribers found', {
+          message: result.message,
+          hint: result.hint,
+          signal: result.signal
+        });
       } else {
         throw new Error(result.message || 'Trading signal failed');
       }
@@ -390,6 +396,12 @@ const PushNotificationTester: React.FC = () => {
       
       if (result.success && result.notified) {
         addLog('success', 'Market event notification sent!', result);
+      } else if (result.error === 'NO_SUBSCRIBERS') {
+        addLog('warning', 'Market event processed but no OneSignal subscribers found', {
+          message: result.message,
+          hint: result.hint,
+          event: result.event
+        });
       } else {
         addLog('info', 'Market event conditions not met', result);
       }
@@ -416,6 +428,11 @@ const PushNotificationTester: React.FC = () => {
       
       if (result.success) {
         addLog('success', 'Broadcast notification sent to all users!', result);
+      } else if (result.error === 'NO_SUBSCRIBERS') {
+        addLog('warning', 'Broadcast failed: No OneSignal subscribers found', {
+          message: result.message,
+          hint: result.hint
+        });
       } else {
         throw new Error(result.message || 'Broadcast failed');
       }

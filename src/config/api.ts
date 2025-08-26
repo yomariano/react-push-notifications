@@ -154,8 +154,11 @@ export class ApiClient {
   }): Promise<{
     success: boolean;
     message: string;
-    notificationId: string;
-    recipients: string;
+    notificationId?: string;
+    recipients?: string;
+    error?: string;
+    hint?: string;
+    details?: any;
   }> {
     return this.post('/api/onesignal-broadcast', data);
   }
@@ -173,8 +176,11 @@ export class ApiClient {
     success: boolean;
     message: string;
     signal: any;
-    notification: any;
+    notification?: any;
     notified: boolean;
+    error?: string;
+    hint?: string;
+    details?: any;
   }> {
     return this.post('/api/trading-signal', signal);
   }
@@ -207,6 +213,9 @@ export class ApiClient {
     event: any;
     notification?: any;
     notified: boolean;
+    error?: string;
+    hint?: string;
+    details?: any;
   }> {
     return this.post('/api/market-event', event);
   }
