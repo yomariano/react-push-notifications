@@ -230,25 +230,73 @@ export async function subscribeOneSignal(): Promise<boolean> {
       return true;
     }
 
-    // Request notification permission first
+    // Request notification permission through browser API first
     console.log('🔔 Requesting notification permission...');
-    try {
-      await window.OneSignal.requestPermission();
-    } catch (error) {
-      console.warn('Permission request method not available, trying alternative');
+    if (Notification.permission !== 'granted') {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        throw new Error('Notification permission denied');
+      }
     }
 
-    // Register for push notifications using OneSignal v16 method
+    // OneSignal v16 subscription approach
     console.log('📝 Registering for OneSignal notifications...');
     try {
-      // Try the newer subscription method
-      await window.OneSignal.setSubscription(true);
+      // OneSignal v16 uses the login method to trigger subscription
+      console.log('Attempting OneSignal v16 subscription methods...');
+      
+      // Method 1: Try to use the Notifications namespace (v16 approach)
+      if (window.OneSignal.Notifications) {
+        console.log('Using OneSignal.Notifications.requestPermission()');
+        await window.OneSignal.Notifications.requestPermission();
+        console.log('✅ Used Notifications.requestPermission method');
+      } 
+      // Method 2: Try login method (common in v16)
+      else if (typeof window.OneSignal.login === 'function') {
+        console.log('Using OneSignal.login() method');
+        await window.OneSignal.login();
+        console.log('✅ Used login method');
+      }
+      // Method 3: Try setSubscription if available
+      else if (typeof window.OneSignal.setSubscription === 'function') {
+        console.log('Using OneSignal.setSubscription(true)');
+        await window.OneSignal.setSubscription(true);
+        console.log('✅ Used setSubscription method');
+      }
+      // Method 4: Try User.PushSubscription namespace
+      else if (window.OneSignal.User && window.OneSignal.User.PushSubscription) {
+        console.log('Using OneSignal.User.PushSubscription.optIn()');
+        await window.OneSignal.User.PushSubscription.optIn();
+        console.log('✅ Used User.PushSubscription.optIn method');
+      }
+      // Method 5: Direct push subscription request
+      else {
+        console.log('Using direct push subscription request...');
+        // Try to access the push subscription directly
+        if (window.OneSignal.context && window.OneSignal.context.subscriptionManager) {
+          const subscription = await window.OneSignal.context.subscriptionManager.subscribe();
+          console.log('✅ Direct subscription result:', subscription);
+        } else {
+          throw new Error('No available subscription methods found');
+        }
+      }
     } catch (error) {
-      console.warn('setSubscription failed, trying registerForPushNotifications');
+      console.error('OneSignal subscription methods failed:', error);
+      
+      // Final fallback: Try to trigger subscription through prompt methods
+      console.log('🔄 Trying prompt methods as fallback...');
       try {
-        await window.OneSignal.registerForPushNotifications();
-      } catch (err) {
-        console.error('All subscription methods failed:', err);
+        if (typeof window.OneSignal.showNativePrompt === 'function') {
+          await window.OneSignal.showNativePrompt();
+          console.log('✅ Used showNativePrompt fallback');
+        } else if (typeof window.OneSignal.showSlidedownPrompt === 'function') {
+          await window.OneSignal.showSlidedownPrompt();
+          console.log('✅ Used showSlidedownPrompt fallback');
+        } else {
+          throw new Error('All subscription methods failed');
+        }
+      } catch (fallbackError) {
+        console.error('All subscription methods failed:', fallbackError);
         throw new Error('Failed to subscribe to OneSignal notifications');
       }
     }
