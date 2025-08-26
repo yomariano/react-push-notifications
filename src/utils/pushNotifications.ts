@@ -4,7 +4,7 @@
 import { apiClient } from '../config/api';
 
 // VAPID public key - Fetched from server
-let VAPID_PUBLIC_KEY = 'BLgcx_kxWLsqiOF6ZcgZZ1c9ULSo1bTV_rrFCQlHCZqdz2dpJYFSPd5wUVVD8tgi4o4BV-chSiGP3OEIXNLsDx8';
+let VAPID_PUBLIC_KEY = 'BKhUZoM0Nd6ScZGQ_l5jXlUs8BVKmKzBANjIdrgmFsVEILjhncdmd7N-UeLZrIsfYRa1nbM-yAE3KCO1gsMd3PM';
 
 // Fetch VAPID key from server
 async function getVapidKey(): Promise<string> {
