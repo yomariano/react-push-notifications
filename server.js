@@ -621,13 +621,38 @@ app.use((error, req, res, next) => {
   });
 });
 
+// Debug endpoint to verify server is running
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    message: 'Node.js server is running with API endpoints',
+    timestamp: new Date().toISOString(),
+    endpoints: [
+      'GET  /api/health',
+      'GET  /api/subscriptions',
+      'POST /api/subscribe',
+      'POST /api/send-notification',
+      'POST /api/onesignal-send',
+      'POST /api/onesignal-broadcast',
+      'POST /api/trading-signal',
+      'POST /api/price-alert',
+      'POST /api/market-event'
+    ]
+  });
+});
+
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🌐 Server running on http://0.0.0.0:${PORT}`);
   console.log(`🔔 Push notifications ready!`);
   console.log(`📱 Test endpoints:`);
+  console.log(`   GET  /api/health - Server health check`);
   console.log(`   POST /api/subscribe - Save subscription`);
   console.log(`   POST /api/send-notification - Send push`);
+  console.log(`   POST /api/trading-signal - Trading signals`);
+  console.log(`   POST /api/price-alert - Price alerts`);
+  console.log(`   POST /api/market-event - Market events`);
+  console.log(`   POST /api/onesignal-broadcast - Broadcast to all`);
   console.log(`   GET  /api/subscriptions - View subscriptions`);
   console.log('');
   console.log('🎯 Ready to send real push notifications to your phone!');
