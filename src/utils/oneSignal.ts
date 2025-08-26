@@ -457,10 +457,24 @@ export async function sendOneSignalNotification(
       throw new Error('OneSignal not initialized');
     }
 
-    const userId = await window.OneSignal.getUserId();
+    // Get user ID using v16 methods
+    let userId = null;
+    if (window.OneSignal.User && window.OneSignal.User.onesignalId) {
+      userId = window.OneSignal.User.onesignalId;
+      console.log('📱 Using OneSignal User ID from User.onesignalId:', userId);
+    } else if (window.OneSignal.User && window.OneSignal.User.PushSubscription && window.OneSignal.User.PushSubscription.id) {
+      userId = window.OneSignal.User.PushSubscription.id;
+      console.log('📱 Using OneSignal User ID from User.PushSubscription.id:', userId);
+    } else if (typeof window.OneSignal.getUserId === 'function') {
+      userId = await window.OneSignal.getUserId();
+      console.log('📱 Using OneSignal User ID from getUserId fallback:', userId);
+    }
+
     if (!userId) {
       throw new Error('No OneSignal user ID found. Please subscribe first.');
     }
+
+    console.log('🎯 Sending notification to User ID:', userId);
 
     // For testing, we'll use the REST API approach
     const response = await fetch('/api/onesignal-send', {
