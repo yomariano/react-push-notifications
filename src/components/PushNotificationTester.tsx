@@ -563,7 +563,27 @@ const PushNotificationTester: React.FC = () => {
         addLog('error', '❌ Failed to get VAPID key from backend:', error);
       }
       
-      addLog('info', '💡 Backend connection is working - the issue is likely with OneSignal subscription');
+      // Test OneSignal debug endpoint
+      try {
+        const oneSignalDebugResponse = await apiClient.debugOneSignal();
+        addLog('success', '✅ OneSignal backend debug info retrieved:', {
+          subscriberCount: oneSignalDebugResponse.subscriberCount,
+          appId: oneSignalDebugResponse.appId,
+          hasSubscribers: oneSignalDebugResponse.subscriberCount > 0
+        });
+        
+        if (oneSignalDebugResponse.subscriberCount === 0) {
+          addLog('warning', '⚠️ CRITICAL: OneSignal has 0 subscribers!');
+          addLog('info', '💡 This explains why notifications are not being delivered');
+          addLog('info', '🔧 Solution: Subscribe to OneSignal using the "🎯 Subscribe OneSignal" button');
+        } else {
+          addLog('success', `✅ OneSignal has ${oneSignalDebugResponse.subscriberCount} subscribers`);
+        }
+      } catch (error) {
+        addLog('error', '❌ Failed to get OneSignal debug info from backend:', error);
+      }
+      
+      addLog('info', '💡 Backend connection is working - check OneSignal subscription status above');
       
     } catch (error: any) {
       addLog('error', '❌ Backend connection test failed:', error);

@@ -102,6 +102,17 @@ export class ApiClient {
     return this.get('/api/vapid-key');
   }
 
+  // Debug OneSignal subscriber count
+  async debugOneSignal(): Promise<{
+    success: boolean;
+    appId: string;
+    appInfo: any;
+    subscriberCount: number;
+    debug: any;
+  }> {
+    return this.get('/api/onesignal-debug');
+  }
+
   // Web Push API methods
   async saveSubscription(subscription: PushSubscription): Promise<{
     success: boolean;
