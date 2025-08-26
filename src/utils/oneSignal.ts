@@ -160,29 +160,53 @@ export async function getOneSignalStatus(): Promise<{
     }
 
     try {
-      isSubscribed = await window.OneSignal.isPushNotificationsEnabled();
-    } catch (error) {
-      console.warn('OneSignal isPushNotificationsEnabled failed:', error);
-      // Try alternative method
-      try {
-        const subscription = await window.OneSignal.getSubscription();
-        isSubscribed = !!subscription;
-      } catch (err) {
-        isSubscribed = false;
+      // OneSignal v16 subscription status check
+      if (window.OneSignal.User && window.OneSignal.User.pushSubscription) {
+        // Method 1: Use v16 optedIn property
+        if (typeof window.OneSignal.User.pushSubscription.optedIn !== 'undefined') {
+          isSubscribed = window.OneSignal.User.pushSubscription.optedIn;
+          console.log('✅ Got subscription status from User.pushSubscription.optedIn:', isSubscribed);
+        }
+        // Method 2: Use v16 async method if available
+        else if (typeof window.OneSignal.User.pushSubscription.getOptedInAsync === 'function') {
+          isSubscribed = await window.OneSignal.User.pushSubscription.getOptedInAsync();
+          console.log('✅ Got subscription status from User.pushSubscription.getOptedInAsync:', isSubscribed);
+        }
       }
+      // Fallback to legacy method
+      else if (typeof window.OneSignal.isPushNotificationsEnabled === 'function') {
+        isSubscribed = await window.OneSignal.isPushNotificationsEnabled();
+        console.log('✅ Got subscription status from isPushNotificationsEnabled fallback:', isSubscribed);
+      }
+    } catch (error) {
+      console.warn('OneSignal subscription status check failed:', error);
+      isSubscribed = false;
     }
 
     try {
-      userId = await window.OneSignal.getUserId();
+      // OneSignal v16 user ID retrieval
+      if (window.OneSignal.User && window.OneSignal.User.onesignalId) {
+        userId = window.OneSignal.User.onesignalId;
+        console.log('✅ Got User ID from User.onesignalId:', userId);
+      }
+      // Method 2: PushSubscription ID
+      else if (window.OneSignal.User && window.OneSignal.User.PushSubscription && window.OneSignal.User.PushSubscription.id) {
+        userId = window.OneSignal.User.PushSubscription.id;
+        console.log('✅ Got User ID from User.PushSubscription.id:', userId);
+      }
+      // Method 3: Async method if available
+      else if (window.OneSignal.User && window.OneSignal.User.PushSubscription && typeof window.OneSignal.User.PushSubscription.getIdAsync === 'function') {
+        userId = await window.OneSignal.User.PushSubscription.getIdAsync();
+        console.log('✅ Got User ID from User.PushSubscription.getIdAsync:', userId);
+      }
+      // Legacy fallback
+      else if (typeof window.OneSignal.getUserId === 'function') {
+        userId = await window.OneSignal.getUserId();
+        console.log('✅ Got User ID from getUserId fallback:', userId);
+      }
     } catch (error) {
       console.warn('OneSignal getUserId failed:', error);
-      // Try alternative method
-      try {
-        const subscription = await window.OneSignal.getSubscription();
-        userId = subscription?.id;
-      } catch (err) {
-        userId = undefined;
-      }
+      userId = undefined;
     }
 
     const status = {
@@ -251,43 +275,89 @@ export async function subscribeOneSignal(): Promise<boolean> {
     });
     
     try {
-      // OneSignal v16 uses the login method to trigger subscription
-      console.log('Attempting OneSignal v16 subscription methods...');
+      // OneSignal v16 proper subscription flow
+      console.log('🔧 Starting OneSignal v16 subscription process...');
       
-      // Method 1: Try to use the Notifications namespace (v16 approach)
-      if (window.OneSignal.Notifications) {
-        console.log('Using OneSignal.Notifications.requestPermission()');
-        await window.OneSignal.Notifications.requestPermission();
-        console.log('✅ Used Notifications.requestPermission method');
-      } 
-      // Method 2: Try login method (common in v16)
-      else if (typeof window.OneSignal.login === 'function') {
-        console.log('Using OneSignal.login() method');
-        await window.OneSignal.login();
-        console.log('✅ Used login method');
-      }
-      // Method 3: Try setSubscription if available
-      else if (typeof window.OneSignal.setSubscription === 'function') {
-        console.log('Using OneSignal.setSubscription(true)');
-        await window.OneSignal.setSubscription(true);
-        console.log('✅ Used setSubscription method');
-      }
-      // Method 4: Try User.PushSubscription namespace
-      else if (window.OneSignal.User && window.OneSignal.User.PushSubscription) {
-        console.log('Using OneSignal.User.PushSubscription.optIn()');
+      // Method 1: Use User.PushSubscription.optIn() - Correct v16 method
+      if (window.OneSignal.User && window.OneSignal.User.PushSubscription && typeof window.OneSignal.User.PushSubscription.optIn === 'function') {
+        console.log('✅ Using OneSignal.User.PushSubscription.optIn() - v16 standard method');
         await window.OneSignal.User.PushSubscription.optIn();
-        console.log('✅ Used User.PushSubscription.optIn method');
+        console.log('✅ User.PushSubscription.optIn completed');
       }
-      // Method 5: Direct push subscription request
+      // Method 2: Set User.pushSubscription.optedIn = true (v16 property)
+      else if (window.OneSignal.User && window.OneSignal.User.pushSubscription) {
+        console.log('✅ Using User.pushSubscription.optedIn property - v16 method');
+        window.OneSignal.User.pushSubscription.optedIn = true;
+        console.log('✅ User.pushSubscription.optedIn set to true');
+      }
+      // Method 3: Use Notifications.requestPermission() + login
+      else if (window.OneSignal.Notifications && typeof window.OneSignal.login === 'function') {
+        console.log('✅ Using Notifications.requestPermission + login flow');
+        await window.OneSignal.Notifications.requestPermission();
+        console.log('✅ Permission requested, now calling login...');
+        await window.OneSignal.login();
+        console.log('✅ Login completed');
+      }
+      // Method 4: Just use Notifications.requestPermission for subscription
+      else if (window.OneSignal.Notifications && typeof window.OneSignal.Notifications.requestPermission === 'function') {
+        console.log('✅ Using OneSignal.Notifications.requestPermission() only');
+        await window.OneSignal.Notifications.requestPermission();
+        console.log('✅ Notifications.requestPermission completed');
+      }
+      // Method 5: Fallback to login method
+      else if (typeof window.OneSignal.login === 'function') {
+        console.log('✅ Using OneSignal.login() fallback method');
+        await window.OneSignal.login();
+        console.log('✅ Login method completed');
+      }
       else {
-        console.log('Using direct push subscription request...');
-        // Try to access the push subscription directly
-        if (window.OneSignal.context && window.OneSignal.context.subscriptionManager) {
-          const subscription = await window.OneSignal.context.subscriptionManager.subscribe();
-          console.log('✅ Direct subscription result:', subscription);
-        } else {
-          throw new Error('No available subscription methods found');
+        throw new Error('No compatible OneSignal subscription methods found');
+      }
+      
+      // Give OneSignal time to process the subscription
+      console.log('⏳ Waiting for OneSignal to process subscription...');
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Try to get user ID after subscription using v16 methods
+      let userId = undefined;
+      console.log('🔍 Attempting to retrieve User ID using v16 methods...');
+      
+      try {
+        // Method 1: Direct property access (v16)
+        if (window.OneSignal.User && window.OneSignal.User.onesignalId) {
+          userId = window.OneSignal.User.onesignalId;
+          console.log('✅ Got User ID from User.onesignalId:', userId);
         }
+        // Method 2: PushSubscription ID (v16)
+        else if (window.OneSignal.User && window.OneSignal.User.PushSubscription && window.OneSignal.User.PushSubscription.id) {
+          userId = window.OneSignal.User.PushSubscription.id;
+          console.log('✅ Got User ID from User.PushSubscription.id:', userId);
+        }
+        // Method 3: Try async method if available
+        else if (window.OneSignal.User && window.OneSignal.User.PushSubscription && typeof window.OneSignal.User.PushSubscription.getIdAsync === 'function') {
+          userId = await window.OneSignal.User.PushSubscription.getIdAsync();
+          console.log('✅ Got User ID from User.PushSubscription.getIdAsync():', userId);
+        }
+        // Method 4: Legacy getUserId fallback
+        else if (typeof window.OneSignal.getUserId === 'function') {
+          userId = await window.OneSignal.getUserId();
+          console.log('✅ Got User ID from getUserId() fallback:', userId);
+        }
+        
+        if (!userId) {
+          console.warn('⚠️ No User ID found after subscription attempt');
+          // Log available properties for debugging
+          console.log('🔍 Available User properties:', {
+            hasUser: !!window.OneSignal.User,
+            hasOnesignalId: !!(window.OneSignal.User && window.OneSignal.User.onesignalId),
+            onesignalId: window.OneSignal.User?.onesignalId,
+            hasPushSubscription: !!(window.OneSignal.User && window.OneSignal.User.PushSubscription),
+            pushSubscriptionId: window.OneSignal.User?.PushSubscription?.id,
+            hasLegacyGetUserId: typeof window.OneSignal.getUserId === 'function'
+          });
+        }
+      } catch (error) {
+        console.warn('⚠️ Could not retrieve User ID after subscription:', error);
       }
     } catch (error) {
       console.error('OneSignal subscription methods failed:', error);
@@ -313,16 +383,46 @@ export async function subscribeOneSignal(): Promise<boolean> {
     // Give OneSignal time to process subscription
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // Check if subscription was successful
+    // Check if subscription was successful using v16 methods
     let finalSubscriptionCheck = false;
     let finalUserId = undefined;
 
     try {
-      finalSubscriptionCheck = await window.OneSignal.isPushNotificationsEnabled();
-      finalUserId = await window.OneSignal.getUserId();
+      // Check subscription status using v16 methods
+      if (window.OneSignal.User && window.OneSignal.User.pushSubscription) {
+        if (typeof window.OneSignal.User.pushSubscription.optedIn !== 'undefined') {
+          finalSubscriptionCheck = window.OneSignal.User.pushSubscription.optedIn;
+          console.log('✅ Final subscription check - User.pushSubscription.optedIn:', finalSubscriptionCheck);
+        } else if (typeof window.OneSignal.User.pushSubscription.getOptedInAsync === 'function') {
+          finalSubscriptionCheck = await window.OneSignal.User.pushSubscription.getOptedInAsync();
+          console.log('✅ Final subscription check - getOptedInAsync:', finalSubscriptionCheck);
+        }
+      } else if (typeof window.OneSignal.isPushNotificationsEnabled === 'function') {
+        finalSubscriptionCheck = await window.OneSignal.isPushNotificationsEnabled();
+        console.log('✅ Final subscription check - isPushNotificationsEnabled fallback:', finalSubscriptionCheck);
+      }
+
+      // Get user ID using v16 methods
+      if (window.OneSignal.User && window.OneSignal.User.onesignalId) {
+        finalUserId = window.OneSignal.User.onesignalId;
+        console.log('✅ Final User ID check - User.onesignalId:', finalUserId);
+      } else if (window.OneSignal.User && window.OneSignal.User.PushSubscription && window.OneSignal.User.PushSubscription.id) {
+        finalUserId = window.OneSignal.User.PushSubscription.id;
+        console.log('✅ Final User ID check - User.PushSubscription.id:', finalUserId);
+      } else if (typeof window.OneSignal.getUserId === 'function') {
+        finalUserId = await window.OneSignal.getUserId();
+        console.log('✅ Final User ID check - getUserId fallback:', finalUserId);
+      }
     } catch (error) {
-      console.warn('Could not verify subscription, but assuming success');
-      finalSubscriptionCheck = true;
+      console.warn('Could not verify subscription, checking available properties');
+      console.log('🔍 Final verification - available properties:', {
+        hasUser: !!window.OneSignal.User,
+        hasOnesignalId: !!(window.OneSignal.User && window.OneSignal.User.onesignalId),
+        onesignalId: window.OneSignal.User?.onesignalId,
+        hasPushSubscription: !!(window.OneSignal.User && window.OneSignal.User.PushSubscription),
+        pushSubscriptionId: window.OneSignal.User?.PushSubscription?.id,
+        hasLegacyMethods: typeof window.OneSignal.getUserId === 'function'
+      });
     }
 
     if (finalSubscriptionCheck || finalUserId) {
@@ -432,8 +532,29 @@ export async function getOneSignalUserId(): Promise<string | null> {
       return null;
     }
 
-    const userId = await window.OneSignal.getUserId();
-    console.log('👤 OneSignal User ID:', userId);
+    let userId = null;
+
+    // OneSignal v16 methods
+    if (window.OneSignal.User && window.OneSignal.User.onesignalId) {
+      userId = window.OneSignal.User.onesignalId;
+      console.log('👤 OneSignal User ID from User.onesignalId:', userId);
+    }
+    // Method 2: PushSubscription ID
+    else if (window.OneSignal.User && window.OneSignal.User.PushSubscription && window.OneSignal.User.PushSubscription.id) {
+      userId = window.OneSignal.User.PushSubscription.id;
+      console.log('👤 OneSignal User ID from User.PushSubscription.id:', userId);
+    }
+    // Method 3: Async method if available
+    else if (window.OneSignal.User && window.OneSignal.User.PushSubscription && typeof window.OneSignal.User.PushSubscription.getIdAsync === 'function') {
+      userId = await window.OneSignal.User.PushSubscription.getIdAsync();
+      console.log('👤 OneSignal User ID from User.PushSubscription.getIdAsync:', userId);
+    }
+    // Legacy fallback
+    else if (typeof window.OneSignal.getUserId === 'function') {
+      userId = await window.OneSignal.getUserId();
+      console.log('👤 OneSignal User ID from getUserId fallback:', userId);
+    }
+
     return userId;
   } catch (error) {
     console.error('❌ Failed to get OneSignal User ID:', error);
