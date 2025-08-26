@@ -60,6 +60,7 @@ const PushNotificationTester: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [customMessage, setCustomMessage] = useState('');
 
   // Comprehensive logging function
   const addLog = useCallback((level: LogEntry['level'], message: string, details?: any) => {
@@ -273,10 +274,10 @@ const PushNotificationTester: React.FC = () => {
     try {
       addLog('info', 'Sending OneSignal test notification...');
       
-      const success = await sendOneSignalNotification(
-        '🎯 OneSignal Test',
-        'OneSignal push notification working perfectly! Check your phone! 📱'
-      );
+      const title = customMessage ? '💬 Custom Message' : '🎯 OneSignal Test';
+      const message = customMessage || 'OneSignal push notification working perfectly! Check your phone! 📱';
+      
+      const success = await sendOneSignalNotification(title, message);
       
       if (success) {
         addLog('success', 'OneSignal test notification sent successfully!');
@@ -738,6 +739,27 @@ const PushNotificationTester: React.FC = () => {
         </div>
 
         <h3>🎯 OneSignal Tests</h3>
+        
+        <div className="custom-message-section">
+          <div className="input-group">
+            <label htmlFor="customMessage">💬 Custom Message:</label>
+            <input
+              id="customMessage"
+              type="text"
+              value={customMessage}
+              onChange={(e) => setCustomMessage(e.target.value)}
+              placeholder="Type your custom message here..."
+              disabled={isLoading}
+              className="custom-message-input"
+              maxLength={200}
+            />
+            <small className="input-hint">
+              {customMessage.length}/200 characters
+              {customMessage ? ' - Will send as "💬 Custom Message"' : ' - Leave empty for default test message'}
+            </small>
+          </div>
+        </div>
+
         <div className="button-grid">
           <button 
             onClick={handleOneSignalSubscribe}

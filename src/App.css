@@ -569,3 +569,56 @@ html {
   border-color: #10b981;
   color: #065f46;
 }
+
+/* Custom Message Input */
+.custom-message-section {
+  margin-bottom: 20px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 12px;
+  border: 2px solid #e2e8f0;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.input-group label {
+  font-weight: 600;
+  color: #374151;
+  font-size: 16px;
+}
+
+.custom-message-input {
+  padding: 12px 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 16px;
+  background: white;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.custom-message-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.custom-message-input:disabled {
+  background: #f8fafc;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.input-hint {
+  color: #64748b;
+  font-size: 12px;
+  font-style: italic;
+  margin-top: 4px;
+}
+
+.custom-message-input::placeholder {
+  color: #9ca3af;
+}
