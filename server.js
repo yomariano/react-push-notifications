@@ -398,36 +398,43 @@ app.post('/api/trading-signal', async (req, res) => {
       url: `/signals/${symbol.toLowerCase()}`
     };
     
-    let notificationResult;
+    // Send notification directly via OneSignal API
+    console.log('📡 Sending trading signal notification via OneSignal...');
     
+    const oneSignalPayload = {
+      app_id: 'f88d5ae4-e766-461f-bf00-90707c1b850e',
+      headings: { en: title },
+      contents: { en: message },
+      data: notificationData,
+      web_url: 'https://react.signalstrading.app/',
+      chrome_web_icon: 'https://react.signalstrading.app/vite.svg',
+      firefox_icon: 'https://react.signalstrading.app/vite.svg'
+    };
+
     if (userId) {
       // Send to specific user
-      console.log('📤 Sending targeted signal notification to user:', userId);
-      notificationResult = await fetch(`${req.protocol}://${req.get('host')}/api/onesignal-send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          message,
-          userId,
-          data: notificationData
-        })
-      });
+      console.log('🎯 Targeting specific user:', userId);
+      oneSignalPayload.include_player_ids = [userId];
     } else {
       // Broadcast to all users
-      console.log('📡 Broadcasting signal notification to all users');
-      notificationResult = await fetch(`${req.protocol}://${req.get('host')}/api/onesignal-broadcast`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          message,
-          data: notificationData
-        })
-      });
+      console.log('📡 Broadcasting to all subscribed users');
+      oneSignalPayload.included_segments = ['Subscribed Users'];
     }
+
+    const notificationResult = await fetch('https://onesignal.com/api/v1/notifications', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Basic ${process.env.ONESIGNAL_API_KEY || 'os_v2_app_7cgvvzhhmzdb7pyasbyhyg4fb2rzzg2wgopebeeod643vm43qbfradrvoiqqgev2sdvay5f7ho2yinxlgbvf355inm6ndr6fpzuzglq'}`
+      },
+      body: JSON.stringify(oneSignalPayload)
+    });
     
     const result = await notificationResult.json();
+    
+    if (!notificationResult.ok) {
+      throw new Error(`OneSignal API error: ${result.errors || JSON.stringify(result)}`);
+    }
     
     res.json({
       success: true,
@@ -475,23 +482,42 @@ app.post('/api/price-alert', async (req, res) => {
       });
     }
     
-    // Send alert notification
+    // Send alert notification directly via OneSignal API
     const title = `🚨 Price Alert: ${symbol}`;
-    const notificationResult = await fetch(`${req.protocol}://${req.get('host')}/api/onesignal-${userId ? 'send' : 'broadcast'}`, {
+    
+    const oneSignalPayload = {
+      app_id: 'f88d5ae4-e766-461f-bf00-90707c1b850e',
+      headings: { en: title },
+      contents: { en: alertMessage },
+      data: {
+        alert: { symbol, currentPrice, targetPrice, alertType },
+        url: `/alerts/${symbol.toLowerCase()}`
+      },
+      web_url: 'https://react.signalstrading.app/',
+      chrome_web_icon: 'https://react.signalstrading.app/vite.svg',
+      firefox_icon: 'https://react.signalstrading.app/vite.svg'
+    };
+
+    if (userId) {
+      oneSignalPayload.include_player_ids = [userId];
+    } else {
+      oneSignalPayload.included_segments = ['Subscribed Users'];
+    }
+
+    const notificationResult = await fetch('https://onesignal.com/api/v1/notifications', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title,
-        message: alertMessage,
-        ...(userId && { userId }),
-        data: {
-          alert: { symbol, currentPrice, targetPrice, alertType },
-          url: `/alerts/${symbol.toLowerCase()}`
-        }
-      })
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Basic ${process.env.ONESIGNAL_API_KEY || 'os_v2_app_7cgvvzhhmzdb7pyasbyhyg4fb2rzzg2wgopebeeod643vm43qbfradrvoiqqgev2sdvay5f7ho2yinxlgbvf355inm6ndr6fpzuzglq'}`
+      },
+      body: JSON.stringify(oneSignalPayload)
     });
     
     const result = await notificationResult.json();
+    
+    if (!notificationResult.ok) {
+      throw new Error(`OneSignal API error: ${result.errors || JSON.stringify(result)}`);
+    }
     
     res.json({
       success: true,
@@ -529,21 +555,40 @@ app.post('/api/market-event', async (req, res) => {
     const eventTitle = title || `📈 Market Event: ${eventType}`;
     const eventIcon = severity === 'high' ? '🚨' : '📊';
     
-    const notificationResult = await fetch(`${req.protocol}://${req.get('host')}/api/onesignal-${userId ? 'send' : 'broadcast'}`, {
+    // Send market event notification directly via OneSignal API
+    const oneSignalPayload = {
+      app_id: 'f88d5ae4-e766-461f-bf00-90707c1b850e',
+      headings: { en: `${eventIcon} ${eventTitle}` },
+      contents: { en: message },
+      data: {
+        event: { eventType, severity, timestamp: Date.now() },
+        url: '/market-events'
+      },
+      web_url: 'https://react.signalstrading.app/',
+      chrome_web_icon: 'https://react.signalstrading.app/vite.svg',
+      firefox_icon: 'https://react.signalstrading.app/vite.svg'
+    };
+
+    if (userId) {
+      oneSignalPayload.include_player_ids = [userId];
+    } else {
+      oneSignalPayload.included_segments = ['Subscribed Users'];
+    }
+
+    const notificationResult = await fetch('https://onesignal.com/api/v1/notifications', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: `${eventIcon} ${eventTitle}`,
-        message,
-        ...(userId && { userId }),
-        data: {
-          event: { eventType, severity, timestamp: Date.now() },
-          url: '/market-events'
-        }
-      })
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Basic ${process.env.ONESIGNAL_API_KEY || 'os_v2_app_7cgvvzhhmzdb7pyasbyhyg4fb2rzzg2wgopebeeod643vm43qbfradrvoiqqgev2sdvay5f7ho2yinxlgbvf355inm6ndr6fpzuzglq'}`
+      },
+      body: JSON.stringify(oneSignalPayload)
     });
     
     const result = await notificationResult.json();
+    
+    if (!notificationResult.ok) {
+      throw new Error(`OneSignal API error: ${result.errors || JSON.stringify(result)}`);
+    }
     
     res.json({
       success: true,
