@@ -9,6 +9,7 @@ import {
   unsubscribeFromPushNotifications,
   VAPID_PUBLIC_KEY
 } from '../utils/pushNotifications';
+import { apiClient } from '../config/api';
 import {
   initOneSignal,
   getOneSignalStatus,
@@ -330,20 +331,14 @@ const PushNotificationTester: React.FC = () => {
     try {
       addLog('info', 'Testing programmatic trading signal...');
       
-      const response = await fetch('/api/trading-signal', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          symbol: 'AAPL',
-          price: 150.25,
-          action: 'BUY',
-          confidence: 85,
-          stopLoss: 145.00,
-          takeProfit: 160.00
-        })
+      const result = await apiClient.sendTradingSignal({
+        symbol: 'AAPL',
+        price: 150.25,
+        action: 'BUY',
+        confidence: 85,
+        stopLoss: 145.00,
+        takeProfit: 160.00
       });
-      
-      const result = await response.json();
       
       if (result.success) {
         addLog('success', 'Trading signal notification sent!', result);
@@ -362,20 +357,14 @@ const PushNotificationTester: React.FC = () => {
     try {
       addLog('info', 'Testing programmatic price alert...');
       
-      const response = await fetch('/api/price-alert', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          symbol: 'BTC',
-          currentPrice: 52000,
-          targetPrice: 50000,
-          alertType: 'above'
-        })
+      const result = await apiClient.sendPriceAlert({
+        symbol: 'BTC',
+        currentPrice: 52000,
+        targetPrice: 50000,
+        alertType: 'above'
       });
       
-      const result = await response.json();
-      
-      if (result.success) {
+      if (result.success && result.notified) {
         addLog('success', 'Price alert notification sent!', result);
       } else {
         addLog('info', 'Price alert conditions not met (expected for demo)', result);
@@ -392,23 +381,17 @@ const PushNotificationTester: React.FC = () => {
     try {
       addLog('info', 'Testing programmatic market event...');
       
-      const response = await fetch('/api/market-event', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          eventType: 'EARNINGS',
-          title: 'Apple Q4 Results',
-          message: 'Apple beats earnings expectations by 15% - Stock surging in after-hours trading',
-          severity: 'high'
-        })
+      const result = await apiClient.sendMarketEvent({
+        eventType: 'EARNINGS',
+        title: 'Apple Q4 Results',
+        message: 'Apple beats earnings expectations by 15% - Stock surging in after-hours trading',
+        severity: 'high'
       });
       
-      const result = await response.json();
-      
-      if (result.success) {
+      if (result.success && result.notified) {
         addLog('success', 'Market event notification sent!', result);
       } else {
-        throw new Error(result.message || 'Market event failed');
+        addLog('info', 'Market event conditions not met', result);
       }
     } catch (error: any) {
       addLog('error', `Market event test failed: ${error.message}`, error);
@@ -422,20 +405,14 @@ const PushNotificationTester: React.FC = () => {
     try {
       addLog('info', 'Testing programmatic broadcast...');
       
-      const response = await fetch('/api/onesignal-broadcast', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: '📡 Broadcast Test',
-          message: 'This is a programmatic broadcast notification sent to all subscribed users!',
-          data: {
-            testType: 'broadcast',
-            timestamp: Date.now()
-          }
-        })
+      const result = await apiClient.broadcastOneSignalNotification({
+        title: '📡 Broadcast Test',
+        message: 'This is a programmatic broadcast notification sent to all subscribed users!',
+        data: {
+          testType: 'broadcast',
+          timestamp: Date.now()
+        }
       });
-      
-      const result = await response.json();
       
       if (result.success) {
         addLog('success', 'Broadcast notification sent to all users!', result);

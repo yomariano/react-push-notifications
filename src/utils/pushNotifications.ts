@@ -1,8 +1,23 @@
 // Push Notifications Utility - TypeScript Implementation
-// Triple-verified Web Push API implementation
+// Triple-verified Web Push API implementation with separate backend
 
-// VAPID public key - Generated specifically for this React app
-const VAPID_PUBLIC_KEY = 'BLgcx_kxWLsqiOF6ZcgZZ1c9ULSo1bTV_rrFCQlHCZqdz2dpJYFSPd5wUVVD8tgi4o4BV-chSiGP3OEIXNLsDx8';
+import { apiClient } from '../config/api';
+
+// VAPID public key - Fetched from server
+let VAPID_PUBLIC_KEY = 'BLgcx_kxWLsqiOF6ZcgZZ1c9ULSo1bTV_rrFCQlHCZqdz2dpJYFSPd5wUVVD8tgi4o4BV-chSiGP3OEIXNLsDx8';
+
+// Fetch VAPID key from server
+async function getVapidKey(): Promise<string> {
+  try {
+    const response = await apiClient.getVapidKey();
+    VAPID_PUBLIC_KEY = response.publicKey;
+    console.log('✅ VAPID key fetched from server');
+    return VAPID_PUBLIC_KEY;
+  } catch (error) {
+    console.warn('⚠️ Failed to fetch VAPID key from server, using fallback');
+    return VAPID_PUBLIC_KEY;
+  }
+}
 
 // Interface definitions for type safety
 interface PushSubscriptionJSON {
@@ -184,7 +199,9 @@ export async function subscribeToPushNotifications(): Promise<PushSubscription |
     if (!subscription) {
       console.log('Creating new push subscription...');
       
-      const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+      // Ensure we have the latest VAPID key from server
+      const vapidKey = await getVapidKey();
+      const applicationServerKey = urlBase64ToUint8Array(vapidKey);
       
       subscription = await pushManager.subscribe({
         userVisibleOnly: true,
@@ -219,73 +236,55 @@ export async function subscribeToPushNotifications(): Promise<PushSubscription |
   }
 }
 
-// Send subscription to server (real server implementation)
+// Send subscription to server (using separate backend)
 export async function sendSubscriptionToServer(subscription: PushSubscription): Promise<boolean> {
   try {
     const subscriptionData = subscription.toJSON();
-    console.log('Sending subscription to server:', subscriptionData);
+    console.log('Sending subscription to backend server:', subscriptionData);
 
-    const response = await fetch('/api/subscribe', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        subscription: subscriptionData
-      }),
-    });
+    const result = await apiClient.saveSubscription(subscription);
+    console.log('Backend server response:', result);
 
-    const result = await response.json();
-    console.log('Server response:', result);
-
-    if (response.ok) {
+    if (result.success) {
       localStorage.setItem('pushSubscription', JSON.stringify(subscriptionData));
-      console.log('✅ Subscription sent to server successfully');
+      console.log('✅ Subscription sent to backend server successfully');
       return true;
     } else {
-      throw new Error(`Server error: ${result.error || 'Unknown error'}`);
+      throw new Error(`Backend server error: ${result.message || 'Unknown error'}`);
     }
   } catch (error) {
-    console.error('❌ Failed to send subscription to server:', error);
+    console.error('❌ Failed to send subscription to backend server:', error);
     return false;
   }
 }
 
-// Send test notification through server (real push notification)
+// Send test notification through backend server (real push notification)
 export async function sendTestNotification(payload?: Partial<NotificationPayload>): Promise<boolean> {
   try {
-    console.log('🔔 Sending real push notification through server...');
+    console.log('🔔 Sending real push notification through backend server...');
 
-    const notificationData: NotificationPayload = {
+    const notificationData = {
       title: '🚀 React Push Test',
-      body: 'Real push notification from server! Check your phone! 📱',
+      body: 'Real push notification from backend server! Check your phone! 📱',
       icon: '/vite.svg',
       tag: 'react-push-test',
       data: {
         url: '/',
         timestamp: Date.now(),
-        source: 'server-push'
+        source: 'backend-server-push'
       },
       ...payload
     };
 
-    const response = await fetch('/api/send-notification', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(notificationData),
-    });
+    const result = await apiClient.sendWebPushNotification(notificationData);
+    console.log('📨 Backend server push response:', result);
 
-    const result = await response.json();
-    console.log('📨 Server push response:', result);
-
-    if (response.ok && result.success) {
+    if (result.success) {
       console.log('✅ Real push notification sent successfully!');
       console.log(`📊 Delivered to ${result.summary?.successful} devices`);
       return true;
     } else {
-      throw new Error(`Server push failed: ${result.message || 'Unknown error'}`);
+      throw new Error(`Backend push failed: ${result.message || 'Unknown error'}`);
     }
   } catch (error) {
     console.error('❌ Real push notification failed:', error);
